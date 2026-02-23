@@ -11,33 +11,27 @@ NEWS_KEY = os.getenv("NEWS_KEY")
 CITY_ID = "101010100" 
 
 def get_weather():
-    """获取天气信息 - 兼容域名版"""
+    """获取天气信息 - 使用你截图中的专属域名"""
     if not WEATHER_KEY: return "❌ 缺少 WEATHER_KEY"
     
-    # 自动尝试标准版域名(api)和开发版域名(devapi)
-    urls = [
-        f"https://api.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}",
-        f"https://devapi.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
-    ]
+    # ✅ 这里必须是你截图 image_c6bcc0 中的这个专属地址
+    custom_host = "nk6apxex5g.re.qweatherapi.com" 
+    url = f"https://{custom_host}/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
     
-    last_res = {}
     try:
-        for url in urls:
-            response = requests.get(url, timeout=10)
-            res = response.json()
-            last_res = res
-            if res.get('code') == '200':
-                now = res['now']
-                return f"{now['text']} | 🌡️ {now['temp']}°C | 💧 湿度 {now['humidity']}%"
+        response = requests.get(url, timeout=10)
+        res = response.json()
         
-        # 如果都失败了，抓取具体的报错码
-        err_code = last_res.get('code', 'Unknown')
-        if 'error' in last_res:
-            err_code = f"{last_res['error'].get('title')} ({last_res['error'].get('status')})"
-        return f"❌ 天气报错: {err_code}"
-    except:
-        return "❌ 天气连接异常"
-
+        # 如果返回 200，说明“专属域名”和“长密钥”都对上了
+        if res.get('code') == '200':
+            now = res['now']
+            return f"{now['text']} | 🌡️ {now['temp']}°C | 💧 湿度 {now['humidity']}%"
+        
+        # 如果还是报错，这里会显示具体的错误码，帮你定位
+        return f"❌ 天气报错码: {res.get('code')}"
+    except Exception as e:
+        return f"❌ 天气连接异常: {str(e)}"
+        
 def get_news():
     """获取抖音热搜 - 保持你现有的完美逻辑不变"""
     if not NEWS_KEY: return "❌ 缺少 NEWS_KEY"

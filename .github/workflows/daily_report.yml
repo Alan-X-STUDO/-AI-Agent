@@ -2,10 +2,9 @@ name: Daily DingTalk Report
 
 on:
   schedule:
-    # 这里的 cron 是 UTC 时间，比北京时间晚 8 小时
-    # 23:30 (UTC) = 次日 07:30 (北京时间)
-    - cron: '30 23 * * *'
-  workflow_dispatch: # 允许你手动点击按钮测试运行
+    # 北京时间 22:00 = UTC 时间 14:00
+    - cron: '0 14 * * *'
+  workflow_dispatch: # 保留这个，方便你随时手动点击按钮测试
 
 jobs:
   run-script:

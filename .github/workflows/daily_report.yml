@@ -1,0 +1,30 @@
+name: Daily DingTalk Report
+
+on:
+  schedule:
+    # 这里的 cron 是 UTC 时间，比北京时间晚 8 小时
+    # 23:30 (UTC) = 次日 07:30 (北京时间)
+    - cron: '30 23 * * *'
+  workflow_dispatch: # 允许你手动点击按钮测试运行
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run script
+        env:
+          DINGTALK_TOKEN: ${{ secrets.DINGTALK_TOKEN }}
+          WEATHER_KEY: ${{ secrets.WEATHER_KEY }}
+          NEWS_KEY: ${{ secrets.NEWS_KEY }}
+        run: python main.py

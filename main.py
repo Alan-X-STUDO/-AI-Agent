@@ -2,38 +2,44 @@ import requests
 import os
 import urllib.parse
 
-# 1. 配置读取 (从 GitHub Secrets 获取)
+# --- 1. 基础配置 (从 GitHub Secrets 读取) ---
 DINGTALK_TOKEN = os.getenv("DINGTALK_TOKEN")
 WEATHER_KEY = os.getenv("WEATHER_KEY")
 NEWS_KEY = os.getenv("NEWS_KEY")
-CITY_ID = "101010100"  # 默认北京，可修改
+
+# 在这里明确定义北京的城市 ID
+CITY_ID = "101010100" 
 
 def get_weather():
-    """获取天气信息 - 增强诊断版"""
+    """获取天气信息 - 兼容域名版"""
     if not WEATHER_KEY: return "❌ 缺少 WEATHER_KEY"
     
-    url = f"https://devapi.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
+    # 自动尝试标准版域名(api)和开发版域名(devapi)
+    urls = [
+        f"https://api.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}",
+        f"https://devapi.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
+    ]
     
+    last_res = {}
     try:
-        response = requests.get(url, timeout=10)
-        res = response.json()
+        for url in urls:
+            response = requests.get(url, timeout=10)
+            res = response.json()
+            last_res = res
+            if res.get('code') == '200':
+                now = res['now']
+                return f"{now['text']} | 🌡️ {now['temp']}°C | 💧 湿度 {now['humidity']}%"
         
-        # 正常返回 200
-        if res.get('code') == '200':
-            now = res['now']
-            return f"{now['text']} | 🌡️ {now['temp']}°C | 💧 湿度 {now['humidity']}%"
-        
-        # 处理报错信息 (和风天气在 403 等错误时会返回 error 对象)
-        if 'error' in res:
-            error_data = res['error']
-            return f"❌ 接口报错: {error_data.get('title', '未知')} ({error_data.get('status')})"
-        
-        return f"❌ 错误码: {res.get('code', 'None')}"
-    except Exception as e:
-        return f"❌ 请求异常: {str(e)}"
+        # 如果都失败了，抓取具体的报错码
+        err_code = last_res.get('code', 'Unknown')
+        if 'error' in last_res:
+            err_code = f"{last_res['error'].get('title')} ({last_res['error'].get('status')})"
+        return f"❌ 天气报错: {err_code}"
+    except:
+        return "❌ 天气连接异常"
 
 def get_news():
-    """获取抖音热搜并生成带链接的列表"""
+    """获取抖音热搜 - 保持你现有的完美逻辑不变"""
     if not NEWS_KEY: return "❌ 缺少 NEWS_KEY"
     url = f"https://apis.tianapi.com/douyinhot/index?key={NEWS_KEY}"
     try:
@@ -43,10 +49,8 @@ def get_news():
             formatted_lines = []
             for i, item in enumerate(news_list[:10], 1):
                 word = item['word']
-                # 编码关键词，生成抖音网页端搜索链接
                 encoded_word = urllib.parse.quote(word)
                 link = f"https://www.douyin.com/search/{encoded_word}"
-                # 格式：1. [热搜词](链接)
                 formatted_lines.append(f"{i}. **[{word}]({link})**")
             return "\n\n".join(formatted_lines)
         return f"❌ 新闻报错: {res.get('msg')}"
@@ -56,10 +60,10 @@ def get_news():
 def send_dingtalk(w_info, n_info):
     """发送格式化的钉钉消息"""
     if not DINGTALK_TOKEN: return
-    token = DINGTALK_TOKEN.split('=')[-1]
+    # 自动处理 Token 格式
+    token = DINGTALK_TOKEN.split('=')[-1] if 'access_token=' in DINGTALK_TOKEN else DINGTALK_TOKEN
     url = f"https://oapi.dingtalk.com/robot/send?access_token={token}"
     
-    # 构建精美的 Markdown 内容
     content = (
         f"### 📅 提醒：每日早报已送达\n\n"
         f"--- \n\n"
@@ -77,7 +81,7 @@ def send_dingtalk(w_info, n_info):
     requests.post(url, json=data)
 
 if __name__ == "__main__":
-    # 按照顺序调用，确保 get_weather 已定义
-    weather = get_weather()
-    news = get_news()
-    send_dingtalk(weather, news)
+    # 依次获取数据并发送
+    weather_data = get_weather()
+    news_data = get_news()
+    send_dingtalk(weather_data, news_data)

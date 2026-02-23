@@ -9,17 +9,28 @@ NEWS_KEY = os.getenv("NEWS_KEY")
 CITY_ID = "101010100"  # 默认北京，可修改
 
 def get_weather():
-    """获取天气信息"""
+    """获取天气信息 - 增强诊断版"""
     if not WEATHER_KEY: return "❌ 缺少 WEATHER_KEY"
+    
     url = f"https://devapi.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
+    
     try:
-        res = requests.get(url, timeout=10).json()
+        response = requests.get(url, timeout=10)
+        res = response.json()
+        
+        # 正常返回 200
         if res.get('code') == '200':
             now = res['now']
             return f"{now['text']} | 🌡️ {now['temp']}°C | 💧 湿度 {now['humidity']}%"
-        return f"❌ 天气报错码: {res.get('code')}"
-    except:
-        return "❌ 天气连接异常，请检查 Key"
+        
+        # 处理报错信息 (和风天气在 403 等错误时会返回 error 对象)
+        if 'error' in res:
+            error_data = res['error']
+            return f"❌ 接口报错: {error_data.get('title', '未知')} ({error_data.get('status')})"
+        
+        return f"❌ 错误码: {res.get('code', 'None')}"
+    except Exception as e:
+        return f"❌ 请求异常: {str(e)}"
 
 def get_news():
     """获取抖音热搜并生成带链接的列表"""

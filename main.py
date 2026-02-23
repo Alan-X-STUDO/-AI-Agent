@@ -22,20 +22,20 @@ def get_weather():
     except Exception as e:
         return f"❌ 天气请求失败: {str(e)}"
 
-def get_news():
+ddef get_news():
     if not NEWS_KEY: return "❌ 缺少 NEWS_KEY"
-    # 使用你截图中提到的天行数据接口（注意：不同接口参数可能不同，这里以早报为例）
-    url = f"https://apis.tianapi.com/bulletin/index?key={NEWS_KEY}"
+    # 注意：这是抖音热搜的接口地址
+    url = f"https://apis.tianapi.com/douyinhot/index?key={NEWS_KEY}"
     try:
         res = requests.get(url, timeout=10).json()
-        print(f"DEBUG - 新闻接口返回: {res}")
         if res.get('code') == 200:
             news_list = res.get('result', {}).get('list', [])
-            content = "\n".join([f"· {item['title']}" for item in news_list[:10]])
-            return f"🔥 **今日热点**：\n\n{content}"
-        return f"❌ 新闻报错：{res.get('msg', '未知代码')}"
+            # 抖音热搜使用的是 'word' 字段
+            news_str = "\n".join([f"· {item['word']}" for item in news_list[:10]])
+            return f"🔥 **抖音热搜**：\n\n{news_str}"
+        return f"❌ 新闻报错：{res.get('msg', '未知错误')}"
     except Exception as e:
-        return f"❌ 新闻请求失败: {str(e)}"
+        return f"❌ 新闻请求异常"
 
 def send_dingtalk(content):
     if not DINGTALK_TOKEN:

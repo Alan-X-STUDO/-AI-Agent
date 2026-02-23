@@ -2,84 +2,67 @@ import requests
 import os
 import json
 
-# 从环境变量中读取密钥
+# 配置：从 GitHub Secrets 获取
 DINGTALK_TOKEN = os.getenv("DINGTALK_TOKEN")
 WEATHER_KEY = os.getenv("WEATHER_KEY")
 NEWS_KEY = os.getenv("NEWS_KEY")
-CITY_ID = os.getenv("CITY_ID", "101010100") # 默认北京，建议在 Secrets 里也配一个 CITY_ID
+CITY_ID = "101010100" # 北京的城市代码
 
 def get_weather():
-    if not WEATHER_KEY:
-        return "❌ 错误：未配置 WEATHER_KEY"
-    
-    # 免费版域名：devapi.qweather.com
+    if not WEATHER_KEY: return "❌ 缺少 WEATHER_KEY"
+    # 强制使用和风天气免费版域名
     url = f"https://devapi.qweather.com/v7/weather/now?location={CITY_ID}&key={WEATHER_KEY}"
-    
     try:
-        response = requests.get(url, timeout=10)
-        res = response.json()
-        
-        # --- 关键调试：打印完整返回内容 ---
-        print(f"DEBUG - 天气接口原始返回: {json.dumps(res, ensure_ascii=False)}")
-        
-        # 安全读取 code 字段
-        code = res.get('code')
-        if code == '200':
+        res = requests.get(url, timeout=10).json()
+        print(f"DEBUG - 天气接口返回: {res}")
+        if res.get('code') == '200':
             now = res['now']
             return f"🌡️ **今日天气**：{now['text']}，气温 {now['temp']}°C，体感 {now['feelsLike']}°C"
-        else:
-            return f"❌ 天气接口报错，代码：{code} (请查阅和风天气文档)"
-            
+        return f"❌ 天气报错：{res.get('code', '未知')}"
     except Exception as e:
-        return f"❌ 天气请求发生异常: {str(e)}"
+        return f"❌ 天气请求失败: {str(e)}"
 
 def get_news():
-    if not NEWS_KEY:
-        return "❌ 错误：未配置 NEWS_KEY"
-        
+    if not NEWS_KEY: return "❌ 缺少 NEWS_KEY"
+    # 使用你截图中提到的天行数据接口（注意：不同接口参数可能不同，这里以早报为例）
     url = f"https://apis.tianapi.com/bulletin/index?key={NEWS_KEY}"
-    
     try:
-        response = requests.get(url, timeout=10)
-        res = response.json()
-        
-        # --- 关键调试：打印完整返回内容 ---
-        print(f"DEBUG - 新闻接口原始返回: {json.dumps(res, ensure_ascii=False)}")
-        
+        res = requests.get(url, timeout=10).json()
+        print(f"DEBUG - 新闻接口返回: {res}")
         if res.get('code') == 200:
-            list_news = res.get('result', {}).get('list', [])
-            news_str = "\n".join([f"· {item['title']}" for item in list_news[:10]])
-            return f"🔥 **今日热点**：\n\n{news_str}"
-        else:
-            return f"❌ 新闻接口报错，代码：{res.get('code')}，信息：{res.get('msg')}"
-            
+            news_list = res.get('result', {}).get('list', [])
+            content = "\n".join([f"· {item['title']}" for item in news_list[:10]])
+            return f"🔥 **今日热点**：\n\n{content}"
+        return f"❌ 新闻报错：{res.get('msg', '未知代码')}"
     except Exception as e:
-        return f"❌ 新闻请求发生异常: {str(e)}"
+        return f"❌ 新闻请求失败: {str(e)}"
 
 def send_dingtalk(content):
     if not DINGTALK_TOKEN:
-        print("❌ 错误：未配置 DINGTALK_TOKEN")
+        print("❌ 缺少 DINGTALK_TOKEN")
         return
-        
-    url = f"https://oapi.dingtalk.com/robot/send?access_token={DINGTALK_TOKEN}"
+    
+    # 鲁棒处理：防止 Token 填成了整段 URL
+    clean_token = DINGTALK_TOKEN.split("access_token=")[-1]
+    url = f"https://oapi.dingtalk.com/robot/send?access_token={clean_token}"
+    
     data = {
         "msgtype": "markdown",
         "markdown": {
-            "title": "每日早报",
-            "text": f"## 📅 每日速报 \n\n {content} \n\n > 自定义关键词：热点" 
+            "title": "提醒：每日汇报", # 标题包含关键词
+            "text": f"## 提醒：您订阅的早报已送达 \n\n {content}" # 正文包含关键词
         }
     }
     try:
-        res = requests.post(url, json=data, timeout=10)
-        print(f"DEBUG - 钉钉推送结果: {res.text}")
+        res = requests.post(url, json=data).json()
+        print(f"DEBUG - 钉钉推送结果: {res}")
     except Exception as e:
-        print(f"❌ 钉钉推送异常: {str(e)}")
+        print(f"❌ 钉钉推送失败: {str(e)}")
 
 if __name__ == "__main__":
     print("--- 任务开始 ---")
     weather_info = get_weather()
     news_info = get_news()
-    
-    full_content = f"{weather_info}\n\n---\n\n{news_info}"
-    send_dingtalk(full_content)
+    full_body = f"{weather_info}\n\n---\n\n{news_info}"
+    send_dingtalk(full_body)
     print("--- 任务结束 ---")
